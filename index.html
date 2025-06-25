@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Color Catch</title>
+    <title>色彩捕捉</title>
     <style>
         body {
             margin: 0;
@@ -31,48 +31,23 @@
             padding: 6px 14px;
             font-size: 1em;
         }
-        #level-selector {
-            margin-bottom: 15px;
-            display: flex;
-            gap: 10px;
+        #introduction {
+            margin-top: 30px;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+            color: #ffe;
+            max-width: 600px;
         }
-        .level-btn {
-            padding: 8px 16px;
-            font-size: 1em;
-            border-radius: 6px;
-            border: 2px solid #555;
-            background-color: transparent;
-            color: #ccc;
-            cursor: pointer;
-            transition: background-color 0.2s, border-color 0.2s;
+        #level-indicator {
+            margin-bottom: 10px;
+            font-size: 1.2em;
         }
-        .level-btn.active, .level-btn:hover {
-            background-color: #444;
-            border-color: #888;
-        }
-        #grid-container {
-            display: grid;
-            grid-template-columns: repeat(8, 1fr);
-            gap: 5px;
+        #game-canvas {
             margin: 20px 0;
-            position: relative;
-        }
-        .grid-cell {
-            width: 40px;
-            height: 40px;
-            background-color: #333;
-            border-radius: 6px;
+            background: #111;
+            border-radius: 10px;
+            box-shadow: 0 0 20px #000a;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
-        .grid-cell:hover {
-            transform: scale(1.1);
-        }
-        .grid-cell.correct-answer {
-            box-shadow: 0 0 15px 5px #fff, 0 0 5px 2px #fff inset;
-        }
-        .grid-cell.wrong-answer {
-             box-shadow: 0 0 15px 5px #ff4d4d;
         }
         #status, #result {
             font-size: 1.5em;
@@ -101,242 +76,301 @@
 <body>
     <div class="top-controls">
         <select class="lang-select" id="langSelect">
-            <option value="en">English</option>
             <option value="zh">中文</option>
+            <option value="en">English</option>
+            <option value="no">Norsk</option>
+            <option value="ko">한국어</option>
         </select>
     </div>
-
-    <h1 id="main-title">Color Catch</h1>
-    <div id="level-selector">
-        <button class="level-btn" data-level="easy" id="level-easy">Easy</button>
-        <button class="level-btn active" data-level="medium" id="level-medium">Medium</button>
-        <button class="level-btn" data-level="hard" id="level-hard">Hard</button>
-    </div>
+    <h1 id="main-title">色彩捕捉</h1>
+    <div id="introduction"></div>
+    <div id="level-indicator"></div>
     <div id="status"></div>
-    <div id="grid-container"></div>
+    <canvas id="game-canvas" width="400" height="400"></canvas>
     <div id="result"></div>
-    <button id="new-game-btn">New Game</button>
-
+    <button id="new-game-btn">新游戏</button>
     <script>
-        const LANGS = {
-            en: {
-                title: "Color Catch",
-                memorize: "Memorize this color...",
-                find: "Find the hidden color!",
-                perfect: "Perfect Match! 100% Similarity.",
-                close: "You were {similarity}% close!",
-                completed: "Challenge completed!",
-                newGame: "New Game",
-                easy: "Easy",
-                medium: "Medium",
-                hard: "Hard"
-            },
-            zh: {
-                title: "色彩捕捉",
-                memorize: "记住这个颜色...",
-                find: "找出隐藏的颜色！",
-                perfect: "完全匹配！相似度 100%。",
-                close: "你接近了 {similarity}%！",
-                completed: "挑战完成！",
-                newGame: "新游戏",
-                easy: "简单",
-                medium: "中等",
-                hard: "困难"
-            }
-        };
-
-        const DIFFICULTIES = {
-            easy: { h_range: 12, s_range: 15, l_range: 15 },
-            medium: { h_range: 8, s_range: 10, l_range: 10 },
-            hard: { h_range: 4, s_range: 6, l_range: 6 }
-        };
-
-        const gridContainer = document.getElementById('grid-container');
-        const statusEl = document.getElementById('status');
-        const resultEl = document.getElementById('result');
-        const newGameBtn = document.getElementById('new-game-btn');
-        const langSelect = document.getElementById('langSelect');
-        const levelButtons = document.querySelectorAll('.level-btn');
-
-        const GRID_SIZE = 8;
-        const CELL_COUNT = GRID_SIZE * GRID_SIZE;
-        let gameState = 'idle';
-        let targetColor, correctIndex;
-        let currentLang = 'en';
-        let currentDifficulty = 'medium';
-
-        function setLanguage(lang) {
-            currentLang = lang;
-            const L = LANGS[lang];
-            
-            document.getElementById('main-title').textContent = L.title;
-            document.getElementById('level-easy').textContent = L.easy;
-            document.getElementById('level-medium').textContent = L.medium;
-            document.getElementById('level-hard').textContent = L.hard;
-            newGameBtn.textContent = L.newGame;
-
-            updateStatusAndResultText();
+    const LANGS = {
+        zh: {
+            title: "色彩捕捉",
+            introduction: "玩法：每一行的第一列是目标色。请在每一行的第3~8列中找出与目标色完全相同的色块，每行只能选一次，全部选对才能进入下一关。",
+            memorize: "记住第一列的颜色...",
+            find: "请在每一行选择与第一列相同的颜色！",
+            perfect: "完全匹配！相似度 100%。",
+            close: "你接近了 {similarity}%！",
+            completed: "恭喜你通关全部10关！",
+            retry: "有错误，请重试本关！",
+            nextLevel: "进入下一关",
+            newGame: "重新开始",
+            level: "第 {level} 关 / 共 10 关"
+        },
+        en: {
+            title: "Color Catch",
+            introduction: "How to play: The first column in each row is the target color. In each row, find the color block in columns 3-8 that is exactly the same as the target. You can only choose once per row. Pass the level only if all are correct.",
+            memorize: "Memorize the color in the first column...",
+            find: "Select the color in each row that matches the first column!",
+            perfect: "Perfect Match! 100% Similarity.",
+            close: "You were {similarity}% close!",
+            completed: "Congratulations! You finished all 10 levels!",
+            retry: "Some choices are wrong, please try again!",
+            nextLevel: "Next Level",
+            newGame: "Restart",
+            level: "Level {level} / 10"
+        },
+        no: {
+            title: "Fang Fargen",
+            introduction: "Slik spiller du: Første kolonne i hver rad er mål-fargen. Finn fargen i kolonne 3-8 i hver rad som er identisk med målet. Du kan bare velge én gang per rad. Du må ha alt riktig for å gå videre.",
+            memorize: "Husk fargen i første kolonne...",
+            find: "Velg fargen i hver rad som matcher første kolonne!",
+            perfect: "Perfekt! 100% likhet.",
+            close: "Du var {similarity}% nær!",
+            completed: "Gratulerer! Du har fullført alle 10 nivåer!",
+            retry: "Noen valg var feil, prøv igjen!",
+            nextLevel: "Neste nivå",
+            newGame: "Start på nytt",
+            level: "Nivå {level} / 10"
+        },
+        ko: {
+            title: "컬러 캐치",
+            introduction: "플레이 방법: 각 행의 첫 번째 열이 목표 색상입니다. 각 행의 3~8열에서 목표 색상과 완전히 같은 색상을 찾으세요. 각 행마다 한 번만 선택할 수 있습니다. 모두 맞혀야 다음 단계로 넘어갑니다.",
+            memorize: "첫 번째 열의 색상을 기억하세요...",
+            find: "각 행에서 첫 번째 열과 같은 색상을 선택하세요!",
+            perfect: "완벽 일치! 유사도 100%.",
+            close: "{similarity}% 비슷했어요!",
+            completed: "축하합니다! 10단계를 모두 완료했습니다!",
+            retry: "틀린 선택이 있습니다. 다시 시도하세요!",
+            nextLevel: "다음 단계",
+            newGame: "다시 시작",
+            level: "{level} 단계 / 10"
         }
-        
-        function updateStatusAndResultText() {
-            const L = LANGS[currentLang];
-            switch(gameState) {
-                case 'memorize':
-                    statusEl.textContent = L.memorize;
-                    break;
-                case 'guess':
-                    statusEl.textContent = L.find;
-                    break;
-                case 'result':
+    };
+    const GRID_SIZE = 8;
+    const CELL_SIZE = 50;
+    const CANVAS_SIZE = GRID_SIZE * CELL_SIZE;
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+    const statusEl = document.getElementById('status');
+    const resultEl = document.getElementById('result');
+    const newGameBtn = document.getElementById('new-game-btn');
+    const langSelect = document.getElementById('langSelect');
+    const levelIndicator = document.getElementById('level-indicator');
+    const introductionEl = document.getElementById('introduction');
+    let gameState = 'idle';
+    let targetColor;
+    let currentLang = 'zh';
+    let gridColors = [];
+    let answerPositions = [];
+    let currentLevel = 1;
+    const MAX_LEVEL = 10;
+    let rowSelected = [];
+    let rowCorrect = [];
+    function setLanguage(lang) {
+        currentLang = lang;
+        const L = LANGS[lang];
+        document.getElementById('main-title').textContent = L.title;
+        newGameBtn.textContent = L.newGame;
+        introductionEl.textContent = L.introduction;
+        updateStatusAndResultText();
+        updateLevelIndicator();
+    }
+    function updateLevelIndicator() {
+        const L = LANGS[currentLang];
+        levelIndicator.textContent = L.level.replace('{level}', currentLevel);
+    }
+    function updateStatusAndResultText() {
+        const L = LANGS[currentLang];
+        switch(gameState) {
+            case 'memorize':
+                statusEl.textContent = L.memorize;
+                break;
+            case 'guess':
+                statusEl.textContent = L.find;
+                break;
+            case 'result':
+                if (currentLevel > MAX_LEVEL) {
                     statusEl.textContent = L.completed;
-                    // Re-evaluate result text for language change
-                    const similarityText = resultEl.dataset.similarity;
-                    if (similarityText) {
-                         const similarity = parseFloat(similarityText);
-                         if (similarity === 100) {
-                            resultEl.innerHTML = L.perfect;
-                        } else {
-                            resultEl.innerHTML = L.close.replace('{similarity}', similarity.toFixed(2));
-                        }
-                    }
-                    break;
-                default:
+                } else {
                     statusEl.textContent = '';
-            }
-        }
-
-        function newGame() {
-            gameState = 'memorize';
-            newGameBtn.disabled = true;
-            resultEl.innerHTML = '';
-            resultEl.removeAttribute('data-similarity');
-            updateStatusAndResultText();
-
-            targetColor = generateRandomColor();
-            correctIndex = Math.floor(Math.random() * CELL_COUNT);
-            
-            renderGrid();
-
-            setTimeout(() => {
-                startGuessingPhase();
-            }, 3000);
-        }
-        
-        function startGuessingPhase() {
-            gameState = 'guess';
-            updateStatusAndResultText();
-            renderGrid();
-        }
-
-        function renderGrid() {
-            gridContainer.innerHTML = '';
-            let colors = [];
-            if (gameState === 'memorize') {
-                for (let i = 0; i < CELL_COUNT; i++) {
-                    colors.push(targetColor);
                 }
-            } else {
-                for (let i = 0; i < CELL_COUNT; i++) {
-                    if (i === correctIndex) {
-                        colors.push(targetColor);
-                    } else {
-                        colors.push(generateSimilarColor(targetColor));
-                    }
+                break;
+            default:
+                statusEl.textContent = '';
+        }
+    }
+    function newGame() {
+        currentLevel = 1;
+        startLevel();
+    }
+    function startLevel() {
+        gameState = 'memorize';
+        newGameBtn.disabled = true;
+        resultEl.innerHTML = '';
+        resultEl.removeAttribute('data-similarity');
+        updateStatusAndResultText();
+        updateLevelIndicator();
+        targetColor = generateRandomColor();
+        gridColors = [];
+        answerPositions = [];
+        rowSelected = Array(GRID_SIZE).fill(false);
+        rowCorrect = Array(GRID_SIZE).fill(false);
+        for (let row = 0; row < GRID_SIZE; row++) {
+            let rowColors = [];
+            for (let col = 0; col < GRID_SIZE; col++) {
+                if (col === 0) {
+                    rowColors.push(targetColor);
+                } else if (col === 1) {
+                    rowColors.push(null); // 空
+                } else {
+                    rowColors.push(targetColor); // 记忆阶段先填目标色
                 }
             }
-            
-            for (let i = 0; i < CELL_COUNT; i++) {
-                const cell = document.createElement('div');
-                cell.classList.add('grid-cell');
-                const c = colors[i];
-                cell.style.backgroundColor = `hsl(${c.h}, ${c.s}%, ${c.l}%)`;
-                if (gameState === 'guess') {
-                    cell.dataset.colorH = c.h;
-                    cell.dataset.colorS = c.s;
-                    cell.dataset.colorL = c.l;
-                    cell.addEventListener('click', handleCellClick);
+            gridColors.push(rowColors);
+        }
+        renderGrid();
+        setTimeout(() => {
+            startGuessingPhase();
+        }, 2000);
+    }
+    function startGuessingPhase() {
+        gameState = 'guess';
+        updateStatusAndResultText();
+        // 生成每一行的答案位置
+        answerPositions = [];
+        for (let row = 0; row < GRID_SIZE; row++) {
+            // 随机选一个3~8列的格子（col: 2~7）为目标色
+            const answerCol = Math.floor(Math.random() * 6) + 2;
+            answerPositions.push(answerCol);
+            for (let col = 2; col < GRID_SIZE; col++) {
+                if (col === answerCol) {
+                    gridColors[row][col] = targetColor;
+                } else {
+                    gridColors[row][col] = generateSimilarColor(targetColor, currentLevel);
                 }
-                gridContainer.appendChild(cell);
             }
         }
-
-        function handleCellClick(e) {
-            if (gameState !== 'guess') return;
+        renderGrid();
+    }
+    function renderGrid() {
+        ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+        for (let row = 0; row < GRID_SIZE; row++) {
+            for (let col = 0; col < GRID_SIZE; col++) {
+                const color = gridColors[row][col];
+                const x = col * CELL_SIZE;
+                const y = row * CELL_SIZE;
+                if (col === 1) {
+                    // 空白
+                    continue;
+                }
+                if (color) {
+                    ctx.fillStyle = `hsl(${color.h}, ${color.s}%, ${color.l}%)`;
+                    ctx.fillRect(x + 2, y + 2, CELL_SIZE - 4, CELL_SIZE - 4);
+                }
+                // 边框
+                ctx.strokeStyle = '#222';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x + 1, y + 1, CELL_SIZE - 2, CELL_SIZE - 2);
+                // 如果已选，画高亮
+                if (rowSelected[row] && col === rowSelected[row]) {
+                    ctx.save();
+                    ctx.strokeStyle = rowCorrect[row] ? '#00ff99' : '#ff4d4d';
+                    ctx.lineWidth = 5;
+                    ctx.strokeRect(x + 3, y + 3, CELL_SIZE - 6, CELL_SIZE - 6);
+                    ctx.restore();
+                }
+            }
+        }
+    }
+    function getCellByCoords(mx, my) {
+        const col = Math.floor(mx / CELL_SIZE);
+        const row = Math.floor(my / CELL_SIZE);
+        if (row < 0 || row >= GRID_SIZE || col < 0 || col >= GRID_SIZE) return null;
+        if (col === 1) return null; // 空白
+        return { row, col };
+    }
+    function handleCanvasClick(e) {
+        if (gameState !== 'guess') return;
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const cell = getCellByCoords(mx, my);
+        if (!cell) return;
+        // 只允许点击第3~8列
+        if (cell.col < 2) return;
+        // 每行只能选一次
+        if (rowSelected[cell.row]) return;
+        rowSelected[cell.row] = cell.col;
+        // 判断是否正确
+        if (cell.col === answerPositions[cell.row]) {
+            rowCorrect[cell.row] = true;
+        } else {
+            rowCorrect[cell.row] = false;
+        }
+        renderGrid();
+        // 如果所有行都已选
+        if (rowSelected.every(sel => sel !== false)) {
             gameState = 'result';
-
-            const chosenColor = {
-                h: parseFloat(e.target.dataset.colorH),
-                s: parseFloat(e.target.dataset.colorS),
-                l: parseFloat(e.target.dataset.colorL),
-            };
-
-            const similarity = calculateColorSimilarity(chosenColor, targetColor);
-            resultEl.dataset.similarity = similarity;
-
+            let allCorrect = rowCorrect.every(c => c);
             const L = LANGS[currentLang];
-            if (similarity === 100) {
-                resultEl.innerHTML = L.perfect;
+            if (allCorrect) {
+                if (currentLevel < MAX_LEVEL) {
+                    resultEl.innerHTML = L.nextLevel;
+                    setTimeout(() => {
+                        currentLevel++;
+                        startLevel();
+                    }, 1200);
+                } else {
+                    resultEl.innerHTML = L.completed;
+                    newGameBtn.disabled = false;
+                }
             } else {
-                resultEl.innerHTML = L.close.replace('{similarity}', similarity.toFixed(2));
+                resultEl.innerHTML = L.retry;
+                newGameBtn.disabled = false;
             }
-            
-            gridContainer.childNodes[correctIndex].classList.add('correct-answer');
-            if(e.target !== gridContainer.childNodes[correctIndex]){
-                 e.target.classList.add('wrong-answer');
-            }
-            
             updateStatusAndResultText();
-            newGameBtn.disabled = false;
         }
-
-        function generateRandomColor() {
-            return {
-                h: Math.floor(Math.random() * 360),
-                s: Math.floor(Math.random() * 40) + 60, // 60-100%
-                l: Math.floor(Math.random() * 40) + 40, // 40-80%
-            };
-        }
-
-        function generateSimilarColor(color) {
-            const diff = DIFFICULTIES[currentDifficulty];
-            const h_diff = (Math.random() - 0.5) * diff.h_range;
-            const s_diff = (Math.random() - 0.5) * diff.s_range;
-            const l_diff = (Math.random() - 0.5) * diff.l_range;
-
-            return {
-                h: (color.h + h_diff + 360) % 360,
-                s: Math.max(0, Math.min(100, color.s + s_diff)),
-                l: Math.max(0, Math.min(100, color.l + l_diff)),
-            };
-        }
-
-        function calculateColorSimilarity(c1, c2) {
-            const dh = Math.min(Math.abs(c1.h - c2.h), 360 - Math.abs(c1.h - c2.h)) / 180.0;
-            const ds = Math.abs(c1.s - c2.s) / 100.0;
-            const dl = Math.abs(c1.l - c2.l) / 100.0;
-            const distance = Math.sqrt(dh*dh + ds*ds + dl*dl);
-            const max_dist = Math.sqrt(1*1 + 1*1 + 1*1);
-            const similarity = 1.0 - (distance / max_dist);
-            return Math.max(0, similarity * 100);
-        }
-
-        newGameBtn.addEventListener('click', newGame);
-        
-        langSelect.addEventListener('change', (e) => {
-            setLanguage(e.target.value);
-        });
-
-        levelButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                levelButtons.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                currentDifficulty = btn.dataset.level;
-                newGame();
-            });
-        });
-
-        setLanguage('en');
-        newGame();
+    }
+    function highlightCell(row, col, color) {
+        const x = col * CELL_SIZE;
+        const y = row * CELL_SIZE;
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 5;
+        ctx.strokeRect(x + 3, y + 3, CELL_SIZE - 6, CELL_SIZE - 6);
+        ctx.restore();
+    }
+    function generateRandomColor() {
+        return {
+            h: Math.floor(Math.random() * 360),
+            s: Math.floor(Math.random() * 40) + 60,
+            l: Math.floor(Math.random() * 40) + 40,
+        };
+    }
+    // 难度随关卡提升，色差逐步减小
+    function generateSimilarColor(color, level) {
+        // 1关最大色差，10关最小色差
+        const h_range = 120 - (level - 1) * 11; // 120~21
+        const h_min = 40 - (level - 1) * 3.5;  // 40~8.5
+        const s_range = 30 - (level - 1) * 2.5; // 30~7.5
+        const l_range = 30 - (level - 1) * 2.5; // 30~7.5
+        let h_diff;
+        do {
+            h_diff = (Math.random() - 0.5) * h_range;
+        } while (Math.abs(h_diff) < h_min);
+        const s_diff = (Math.random() - 0.5) * s_range;
+        const l_diff = (Math.random() - 0.5) * l_range;
+        return {
+            h: (color.h + h_diff + 360) % 360,
+            s: Math.max(0, Math.min(100, color.s + s_diff)),
+            l: Math.max(0, Math.min(100, color.l + l_diff)),
+        };
+    }
+    canvas.addEventListener('click', handleCanvasClick);
+    newGameBtn.addEventListener('click', newGame);
+    langSelect.addEventListener('change', (e) => {
+        setLanguage(e.target.value);
+    });
+    setLanguage('zh');
+    newGame();
     </script>
 </body>
 </html> 
